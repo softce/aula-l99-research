@@ -8,6 +8,14 @@ This project grew from experiments on one L99: first a new icon, then a redesign
 
 **The main result is a customizable interface running on the stock MCU logic.** We changed resources, page descriptions, and touch records in `UartTFT-II_Flash.bin`. We did not flash our own replacement executable firmware onto either MCU. A Windows application handles home control; the keyboard does not connect to Home Assistant by itself.
 
+## On-device photos
+
+| HOME: 12 touch controls | Customized main menu |
+|---|---|
+| ![AULA L99 HOME panel with twelve controls](docs/images/l99-home-panel-edited.png) | ![AULA L99 customized main menu](docs/images/l99-main-menu-edited.png) |
+
+Owner-supplied photos of the working keyboard; the on-device interface shown is Russian. These presentation images were AI-retouched for framing and readability and are not pixel-exact evidence of the display. The hardware observations and limitations are documented below.
+
 ## How it works
 
 **Control: a touch becomes an action.**
