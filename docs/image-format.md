@@ -1,43 +1,43 @@
-# Экранный образ и принцип изменения интерфейса
+# The screen image and how UI modification works
 
-[К оглавлению](../README.md)
+[Contents](../README.md) · [Русская версия](ru/image-format.md)
 
-## Что за файл мы меняли
+## Which file did we modify?
 
-`UartTFT-II_Flash.bin`, извлечённый из reset-пакета 2026.5.25:
+`UartTFT-II_Flash.bin`, extracted from the 2026.5.25 reset package:
 
 ```text
 size:   127599044 bytes (0x079B01C4)
 SHA256: 4cb3fa5c77eea973a2b62ca61873f071692694f4c9a1832507fe2c8c9ba582b4
 ```
 
-Это образ ресурсов из поставки производителя, не считанный с конкретной платы backup и не полный raw NAND-дамп с OOB/ECC. Файлы `HFD_Code_V2.2.bin` и `HFD_Code_V2.3.bin` содержат отдельный исполняемый код экранного MCU. Наши подтверждённые изменения дизайна относятся к ресурсному файлу.
+This is a vendor-supplied resource image, not a backup read from a particular board and not a complete raw NAND dump with OOB/ECC. `HFD_Code_V2.2.bin` and `HFD_Code_V2.3.bin` contain separate screen-MCU executable code. Our confirmed design changes affect the resource file.
 
-Все адреса этой главы — **смещения файла**. Нумерация страниц и иконок начинается с нуля.
+Every address in this chapter is a **file offset**. Page and icon indices are zero-based.
 
-| Смещение | Содержание |
+| Offset | Content |
 |---|---|
-| `0x00000000` | Первый UI-проект; размер `0x00A355EC`, LE32 по `+0x174` |
-| `0x00000180` | Блок `0x11C50` байт, включая pinyin-данные; полностью не интерпретирован |
-| `0x00011DD0` | Начальные значения переменных; последующие эксперименты использовали эту область для блока энергии |
-| `0x00021DD0` | 30 записей страниц по 12 байт |
-| `0x00021F38` | Начало записей виджетов |
-| `0x000251A5` | Таблица четырёх шрифтов |
-| `0x002F4349` | Таблица трёх звуковых ресурсов |
-| `0x0034551C` | Три встроенные анимации: 76, 8 и 50 кадров |
-| `0x005C008E` | 30 дескрипторов фонов |
-| `0x00622A84` | Два банка по 569 bitmap-дескрипторов |
-| `0x04000000`, `0x04060000`, `0x040C0000`, `0x041E0000` | Отдельные изображения 320×480 |
-| `0x04240000` | Заставка из 171 кадра; конец `0x05B0D07C` |
-| `0x05B10000`, `0x065455EC`, `0x06F7ABD8` | Ещё три UI-проекта по `0x00A355EC` |
+| `0x00000000` | First UI project; size `0x00A355EC`, also stored as LE32 at `+0x174` |
+| `0x00000180` | `0x11C50`-byte block including pinyin data; not fully interpreted |
+| `0x00011DD0` | Initial variable values; later experiments used this area for the energy block |
+| `0x00021DD0` | 30 page records, 12 bytes each |
+| `0x00021F38` | Start of widget records |
+| `0x000251A5` | Table of four fonts |
+| `0x002F4349` | Table of three sound resources |
+| `0x0034551C` | Three built-in animations: 76, 8, and 50 frames |
+| `0x005C008E` | 30 background descriptors |
+| `0x00622A84` | Two banks of 569 bitmap descriptors |
+| `0x04000000`, `0x04060000`, `0x040C0000`, `0x041E0000` | Separate 320×480 images |
+| `0x04240000` | 171-frame startup animation; ends at `0x05B0D07C` |
+| `0x05B10000`, `0x065455EC`, `0x06F7ABD8` | Three more UI projects, `0x00A355EC` bytes each |
 
-Последние три проекта совпадают друг с другом, но отличаются от первого. Их назначение полностью не установлено: считать их гарантированными recovery-копиями нельзя. Наши модификации сохраняли эти три проекта.
+The last three projects are identical to each other but differ from the first. Their purpose is not fully understood; they cannot be assumed to be guaranteed recovery copies. Our modifications preserved them.
 
-Офлайн-парсер разбирает 30 страниц, 385 display-записей, 187 touch-записей и декодирует 811 уникальных изображений по сочетанию адреса/формата/размеров. Он также сообщает 26 проблемных уникальных дескрипторов; эти случаи не скрываются. Статическая реконструкция не эмулирует MCU, часы и все режимы смешивания.
+The offline parser reads 30 pages, 385 display records, and 187 touch records, and decodes 811 unique images by address/format/dimensions. It also reports 26 problematic unique descriptors rather than hiding them. Static reconstruction does not emulate the MCU, clock, or every blending mode.
 
-## Страница и кнопка — записи данных
+## Pages and buttons are data records
 
-Запись страницы — little-endian `struct '<IHIH'`:
+A page record uses little-endian `struct '<IHIH'`:
 
 ```text
 u32 display_offset
@@ -46,9 +46,9 @@ u32 touch_offset
 u16 touch_length
 ```
 
-Display-запись: `u16 type, u16 parameter_address, u8 length_flags, payload`. Touch-запись: `u16 type_flags, u8 length_flags, payload`. Длина payload в обоих случаях — `length_flags & 0x7F`.
+A display record is `u16 type, u16 parameter_address, u8 length_flags, payload`. A touch record is `u16 type_flags, u8 length_flags, payload`. In both, payload length is `length_flags & 0x7F`.
 
-У обычной touch-кнопки базовый тип `type_flags & 0x3FFF == 1`, payload из восьми LE16:
+A basic touch button has base type `type_flags & 0x3FFF == 1` and eight LE16 payload fields:
 
 ```text
 x1, y1, x2, y2,
@@ -57,15 +57,15 @@ unpressed_icon, pressed_icon,
 goto_page
 ```
 
-`0xFFFF` означает отсутствие обычной иконки/перехода в соответствующем поле. Старшие флаги нельзя произвольно сбрасывать: их полная семантика не восстановлена. Для HOME копировались проверенные типы и коды.
+`0xFFFF` indicates no ordinary icon/transition in the corresponding field. Do not arbitrarily clear the upper flags: their complete semantics have not been recovered. HOME reused tested types and codes.
 
-Пример из stock-меню: запись по `0x22077`, тип `0x8001`, код `0x0020`, переход на страницу 21 — Mini Numpad. В обновлённом меню поле LE16 по `0x22088` изменено **21→15**, чтобы открыть страницу HOME на месте About. Координаты и код возврата сохранены. Страница 21 также была переделана под HOME в используемой цепочке.
+Stock-menu example: the record at `0x22077` has type `0x8001`, return code `0x0020`, and a transition to page 21, Mini Numpad. In the updated menu, the LE16 field at `0x22088` changed **21→15** to open HOME in place of About. Coordinates and the return code were preserved. Page 21 was also converted to HOME in the build chain we used.
 
-У каждого изменения два независимых аспекта: куда нажать и что показать. Перемещение картинки без перемещения touch-прямоугольника оставит старое место нажатия; изменение перехода не создаёт новую команду клавиатуры.
+Each modification has two independent aspects: where to touch and what to draw. Moving artwork without moving the touch rectangle leaves the old hit area. Changing a transition does not create a new keyboard command.
 
-## Bitmap
+## Bitmap format
 
-Дескриптор — 12 байт:
+A descriptor is 12 bytes:
 
 ```text
 u32 payload_offset
@@ -74,48 +74,48 @@ u24 payload_size
 u8  format
 ```
 
-Размер занимает **24 бита**, не 16. Форматы 0/1 декодировались как RGB565 LE, 2 — ARGB4444 LE. Различия transparency/key-color форматов 0/1 не полностью воспроизведены. Формат 3 — собственный контейнер `LT`, а не PNG/JPEG/GIF.
+The size occupies **24 bits**, not 16. Formats 0/1 were decoded as RGB565 LE; format 2 as ARGB4444 LE. The transparency/key-color differences between 0/1 are not fully reproduced. Format 3 is a proprietary `LT` container, not PNG/JPEG/GIF.
 
 ```text
 LT container:
   'LT', u16 width, u16 height, u8 block_count, u8 format,
   u32 internal_size
   block_count × (u24 content_length, u8 mode, 256 × RGB565 palette)
-  затем все блоки content последовательно
+  followed by all content blocks in sequence
 ```
 
-Mode 0 — индекс палитры на пиксель. Mode 1 — пары `count_minus_one, palette_index`; RLE продолжается через границы строк. Метаданные всех блоков идут перед всеми данными. Разные блоки могут иметь разные палитры и режимы.
+Mode 0 uses one palette index per pixel. Mode 1 uses `count_minus_one, palette_index` pairs; RLE continues across row boundaries. All block metadata precedes all content blocks. Blocks can have different palettes and modes.
 
-Отдельные изображения на старших адресах имеют 11-байтовый заголовок: `u32 size, u16 width, u16 height, u8 field, u16 CRC16`, затем RGB565. CRC16/MODBUS совпал для четырёх разобранных картинок.
+The separate images at higher offsets have an 11-byte header: `u32 size, u16 width, u16 height, u8 field, u16 CRC16`, followed by RGB565. CRC16/MODBUS matched for all four inspected images.
 
-## Русский, фон и часы
+## Russian labels, transparency, and the clock
 
-Китайский графический банк активного проекта был заменён русскими надписями. Это работа с bitmap: штатные таблицы шрифтов не переписывались. Загрузочная заставка и три дополнительных проекта не локализованы. Поэтому корректная формулировка — русская графика активного UI, а не всеобщая поддержка кириллицы.
+The active project's Chinese artwork bank was replaced with Russian labels. This is a bitmap change; stock font tables were not rewritten. The startup animation and three additional projects were not localized. The precise claim is Russian artwork in the active UI, not universal Cyrillic support.
 
-Тёмные прямоугольники вокруг главных иконок и нижней панели убирались изменением пикселей/alpha соответствующих ресурсов. Изменение alpha не является изменением Bluetooth-протокола или режима подключения.
+Dark rectangles around main-menu icons and the bottom control strip were removed by changing pixels/alpha in the relevant resources. Alpha changes do not change the Bluetooth protocol or connection mode.
 
-В Clock Energy V3 сохранены родной аналоговый циферблат (иконка 550, 220×230) и параметры стрелок. Изменены координаты, подписи дней недели и добавлены четыре штатных текстовых виджета. Числа поступают из того же RAM-блока, что и на странице энергии.
+Clock Energy V3 preserves the native analog clock face (icon 550, 220×230) and hand parameters. Coordinates and weekday labels changed, and four native text widgets were added. Their numbers use the same RAM block as the energy page.
 
-| Параметр V3 | Значение |
+| V3 parameter | Value |
 |---|---|
-| Страница | 26 |
-| Рабочая база MENU_RU_V2 SHA256 | `59d606f1602b920c83d03d48043c858e27ba6f72dec561ed923d5d0a1a3fadaf` |
-| Результат V3 SHA256 | `6ddca1f9e9e0c3f37f3eda117d7e833b30c7a0e0ab884d902b5686231c5fc6e3` |
-| Переиспользованные bitmap IDs | 534–544 в обоих банках |
-| Пулы ресурсов | `0x901FA8`, 28000 байт; `0xA29ADA`, 24000 байт |
-| Размещённые данные | 50683 байта; в том числе display-блок 251 байт |
-| Изменяемые диапазоны относительно MENU_RU_V2 | 22 дескриптора, 2 пула, 6 байт указателя/длины страницы |
+| Page | 26 |
+| Working MENU_RU_V2 base SHA256 | `59d606f1602b920c83d03d48043c858e27ba6f72dec561ed923d5d0a1a3fadaf` |
+| V3 output SHA256 | `6ddca1f9e9e0c3f37f3eda117d7e833b30c7a0e0ab884d902b5686231c5fc6e3` |
+| Reused bitmap IDs | 534–544 in both banks |
+| Resource pools | `0x901FA8`, 28000 bytes; `0xA29ADA`, 24000 bytes |
+| Allocated data | 50683 bytes, including a 251-byte display block |
+| Allowed changes relative to MENU_RU_V2 | 22 descriptors, 2 pools, 6 bytes of the page pointer/length |
 
-Пулы — освобождённые ресурсы дней недели, а не произвольно выбранная «пустая flash». Проверялись ссылки из остальных страниц и непересечение размещённых данных. Новая графика V3 — raw ARGB4444, без нового LT-сжатого фона. Вся HOME-цепочка имеет больше изменений, чем эти 25 диапазонов: таблица относится только к переходу MENU_RU_V2→Clock V3.
+These pools are reclaimed weekday resources, not arbitrarily chosen “empty flash.” References from other pages and allocation overlap were checked. V3's new artwork uses raw ARGB4444, without a new LT-compressed background. The entire HOME build chain contains more changes than these 25 ranges: this table describes only MENU_RU_V2→Clock V3.
 
-## Как проверять собственную правку
+## How to validate a patch
 
-1. Привязать builder к SHA-256 конкретной базы. На несовпадении остановиться.
-2. Разобрать все страницы, ссылки на ресурсы и границы; не искать картинки по случайной сигнатуре.
-3. Сохранить отдельный оригинал. Собирать новый файл, не перезаписывать базу.
-4. Задать список допустимых диапазонов и независимым сравнением доказать неизменность остальных байтов.
-5. Проверить размеры, ссылки, непересечение, точное потребление display/touch-записей, обе языковые версии.
-6. Декодировать результат обратно для превью; проверить обратимость правки до исходного SHA-256.
-7. Рассматривать тест на устройстве отдельно: красивое превью не доказывает правильную аппаратную отрисовку.
+1. Bind the builder to an exact base SHA-256. Stop on a mismatch.
+2. Parse all pages, resource references, and boundaries; do not identify images by an accidental signature match.
+3. Keep an original copy. Build a new file rather than overwriting the base.
+4. Define allowed byte ranges and independently prove that every other byte is unchanged.
+5. Check sizes, references, overlap, exact consumption of display/touch records, and both language banks.
+6. Decode the output for a preview and verify that reversing the patch restores the original SHA-256.
+7. Treat hardware testing as a separate stage: an attractive preview does not prove correct rendering on the device.
 
-Ресурсная правка ограничивает изменение логики, но **штатный updater передаёт весь ресурсный образ**. Два изменённых пикселя не означают запись только двух пикселей на устройство. Опубликованный инспектор — инструмент чтения, не универсальный упаковщик и не flasher.
+A resource patch limits the logic being changed, but **the official updater transfers the entire resource image**. Changing two pixels does not mean it writes only two pixels to the device. The published inspector is a reader, not a universal packer or flasher.

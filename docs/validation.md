@@ -1,18 +1,22 @@
-# Проверка публичного набора, 2026-10-01
+# Public package validation, 2026-10-01
 
-Проверялись именно копии инструментов, включённые в эту публикацию. Клавиатура не перепрошивалась; команд USB/COM и сервисов Home Assistant не отправляли.
+[Contents](../README.md) · [Русская версия](ru/validation.md)
 
-| Проверка | Результат |
+Validation used the copies of the tools included in this publication. No keyboard was reflashed; no USB/COM commands or Home Assistant service calls were sent.
+
+| Check | Result |
 |---|---|
-| `python -m unittest discover -s tests -v` | 7 тестов пройдено: CRC-векторы, эталонный пакет, адреса RAM, длины строк, повреждение и запрет выхода за блок |
-| `python tools/protocol_reference.py` | Эталонный extended runtime-кадр, CRC16/CRC32 и перенос длины через 255 проверены |
-| `python tools/runtime_codec.py` | Семь синтетических кадров и чтение сигнатуры сформированы офлайн |
-| Извлечение официального reset ZIP | Проверены SHA256 контейнера и всех трёх payload; получены ожидаемые размеры и хеши из recovery.md |
-| Инспектор извлечённого stock UI | 30 страниц, 385 display, 187 touch, 1138 дескрипторов двух банков, 811 декодированных уникальных изображений |
-| Неподдержанные/проблемные дескрипторы | 26; явно остаются в отчёте, не считаются успешно декодированными |
-| Внутренние ссылки документации и синтаксис Python | Проверены локально |
-| Публичные файлы | Проверены на JWT, ключи, auth-литералы, приватные IP, пользовательские пути и реальные entity_id; совпадений не найдено |
+| `python -m unittest discover -s tests -v` | Seven tests passed: CRC vectors, a reference packet, RAM addresses, string lengths, corruption, and rejection of out-of-block requests |
+| `python tools/protocol_reference.py` | Reference extended runtime packet, CRC16/CRC32, and length carry across 255 checked |
+| `python tools/runtime_codec.py` | Seven synthetic write frames and a signature-read frame generated offline |
+| Official reset ZIP extraction | Container and all three payload SHA256 values verified; expected sizes and hashes from recovery.md obtained |
+| Extracted stock UI inspection | 30 pages, 385 display records, 187 touch records, 1138 descriptors across two banks, 811 unique decoded images |
+| Unsupported/problematic descriptors | 26, explicitly retained in the report rather than counted as successfully decoded |
+| Internal documentation links and Python syntax | Checked locally |
+| Public files | Scanned for JWTs, private keys, authorization literals, private IPs, user paths, and actual personal entity IDs; no matches found |
 
-Автоматическая проверка секретов дополняет отбор файлов, но не является математической гарантией отсутствия всех возможных личных данных. Публикация собрана из отдельного списка текстов/исходников; рабочие конфигурации, переписка, снимки HA, EXE, BIN и история исходной рабочей папки в него не включены.
+Automated secret scanning complements explicit file selection; it is not a mathematical guarantee against every possible kind of personal data. The publication was assembled from an allowlist of texts and source files. Working configurations, conversations, HA snapshots, EXEs, BINs, and the original working-directory history were excluded.
 
-Приведённые результаты подтверждают офлайн-разбор, а не безопасность перепрошивки любой L99. Ранее полученные аппаратные наблюдения описаны отдельно в README и recovery.md.
+These results validate offline inspection, not the safety of flashing every L99. Earlier hardware observations are described separately in the README and recovery.md.
+
+The English-default documentation update preserves the Russian edition under `README.ru.md` and `docs/ru/`. It changes documentation only; tool source files are unchanged. Internal language links and technical identifiers are checked again before publication.

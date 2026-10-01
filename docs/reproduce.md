@@ -1,12 +1,12 @@
-# Воспроизведение: начать без подключения клавиатуры
+# Reproduction: start without connecting a keyboard
 
-[К оглавлению](../README.md)
+[Contents](../README.md) · [Русская версия](ru/reproduce.md)
 
-Все инструменты этого репозитория работают с файлами/байтами. Они не читают конфигурацию HA, не открывают USB/COM, не запускают EXE и не прошивают устройство.
+Every tool in this repository operates on files or bytes. None reads HA configuration, opens USB/COM, launches an EXE, or flashes a device.
 
-## Подготовка
+## Setup
 
-Python 3.12 использовался при локальной проверке. Из корня репозитория:
+Local validation used Python 3.12. From the repository root:
 
 ```powershell
 python -m venv .venv
@@ -16,11 +16,13 @@ python -m venv .venv
 .venv\Scripts\python.exe tools/runtime_codec.py
 ```
 
-На Linux замените путь интерпретатора на `.venv/bin/python`. Офлайн-тесты кодеков требуют только стандартную библиотеку; Pillow и numpy нужны инспектору.
+On Linux, use `.venv/bin/python` instead. The offline codec tests require only the standard library; Pillow and numpy are needed by the inspector.
 
-## Извлечение собственноручно полученного официального пакета
+## Extract an official package you obtained separately
 
-Получите архив по ссылке производителя в [recovery.md](recovery.md), сохраните отдельно, сверьте размер и SHA256. Не запускайте updater ради извлечения.
+Get the archive from the manufacturer link in [recovery.md](recovery.md), keep it separately, and check its size and SHA256. Do not run the updater merely to extract its files.
+
+With the virtual environment active, or using its interpreter explicitly:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 .\input\L99-reset.zip
@@ -28,22 +30,22 @@ python tools/extract_l99_reset_assets.py input/L99-reset.zip extracted
 python tools/inspect_l99_ui.py extracted/UartTFT-II_Flash.bin inspection
 ```
 
-Extractor находит контейнер ровно ожидаемого размера, проверяет его SHA256, затем извлекает три файла по зафиксированным смещениям с независимой проверкой каждого хеша. Чужую/новую версию он не пытается угадать. Существующий отличающийся выходной файл не перезаписывает.
+The extractor locates a container of exactly the expected size, verifies its SHA256, then extracts three files at recorded offsets and independently verifies each hash. It does not guess how a different or newer version is laid out. An existing output file with different contents is not overwritten.
 
-Инспектор принимает только stock SHA256 из статьи. Он не предназначен для всех модифицированных образов без адаптации. Результаты: `manifest.json`, `touch_zones.csv`, `overview.jpg`, картинки `pages/`, `assets/`, модель `viewer_data.js`. В текущей публичной версии отдельный HTML-просмотрщик не включён: изображения открываются обычным просмотрщиком, метаданные читаются из JSON/CSV.
+The inspector accepts only the stock SHA256 documented in the article. It is not intended to parse every modified image without adaptation. Outputs include `manifest.json`, `touch_zones.csv`, `overview.jpg`, images under `pages/` and `assets/`, and a `viewer_data.js` model. This public version does not include the separate HTML viewer: open images with a normal image viewer and inspect metadata in JSON/CSV.
 
-Таблицы находятся по адресам заголовка и проверяются на целостность записей. Проблемные дескрипторы попадают в `decode_issues`. Исходный файл не изменяется; выходная папка заполняется/обновляется. Используйте новую пустую выходную папку. Не включайте Python `-O`: часть проверок исходного исследовательского парсера реализована через `assert`. Его область применения — хешированная известная база, не произвольный недоверенный файл.
+Tables are located through header addresses and records are checked for integrity. Problematic descriptors appear in `decode_issues`. The input is unchanged, but the output directory is populated/updated. Use a new empty output directory. Do not enable Python `-O`: some checks in the original research parser use `assert`. Its intended input is the known hash-verified base, not an arbitrary untrusted file.
 
-## Что проверяют примеры протокола
+## What the protocol examples check
 
-`protocol_reference.py` — reference для расширенных runtime и нескольких ISP-форматов. Это только кодирование/декодирование, не последовательность прошивки. Команда external-read помечена как кандидат из SDK: на живой L99 в этом исследовании не проверена.
+`protocol_reference.py` provides reference encoding for extended runtime and selected ISP formats. It only encodes/decodes; it is not a flashing sequence. The external-read command is labeled as an SDK candidate and was not tested on live L99 hardware in this investigation.
 
-`runtime_codec.py` — ограниченный пример коротких RAM-кадров для блока энергии, синтетические значения, сигнатура и CRC. Он не импортирует serial и не умеет отправлять кадры. Адреса предназначены для согласованного изменённого UI, не произвольного stock-образа.
+`runtime_codec.py` is a bounded example of short RAM frames for the energy block, with synthetic readings, a signature, and CRC. It does not import serial or send packets. Its addresses apply to the matching custom UI, not an arbitrary stock image.
 
-## Как развить результат
+## Building on the findings
 
-Для своего UI: разберите известную базу, начните с одной иконки, сохраните команды и touch-геометрию, сформируйте отдельный файл и независимый diff. Для собственной HA-интеграции: сначала локальный индикатор на ПК от экранных нажатий, затем одна явно назначенная сущность, и только после этого фоновые действия и автозапуск.
+For a custom UI, inspect a known base, start with one icon, preserve commands and touch geometry, build a separate file, and independently check the diff. For HA integration, begin with a local PC indicator responding to screen touches, then one explicitly assigned entity, followed by background operation and autostart.
 
-В этой публикации нет автоматически собираемого пакета нашей HOME-прошивки или Windows-приложения. Инструменты позволяют воспроизвести **разбор заводского образа и форматов**, а не установить все описанные функции одной командой. Это сознательно указано, чтобы исследование не выглядело готовым поддерживаемым продуктом.
+This publication does not include an automatically buildable version of our HOME firmware package or Windows application. The tools reproduce **inspection of the factory image and packet formats**, not installation of every described feature with one command. This distinction keeps a research publication from being mistaken for a supported finished product.
 
-Созданные BIN, извлечённые картинки, логи и личные настройки остаются локально. `.gitignore` помогает избежать случайного добавления, но перед любой публикацией всё равно нужно проверять фактический список файлов.
+Generated BIN files, extracted images, logs, and personal configuration remain local. `.gitignore` helps prevent accidental additions, but the actual file list still needs review before publication.

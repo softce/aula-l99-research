@@ -1,83 +1,87 @@
-# AULA L99: свой экран и Home Assistant
+# AULA L99: a custom screen and Home Assistant
 
-[English overview](README.en.md) · [Архитектура](docs/architecture.md) · [Формат образа](docs/image-format.md) · [Протокол и адреса](docs/protocol.md) · [Восстановление](docs/recovery.md)
+[Русская версия](README.ru.md) · [Architecture](docs/architecture.md) · [Image format](docs/image-format.md) · [Protocols and addresses](docs/protocol.md) · [Recovery](docs/recovery.md)
 
-Как превратить сенсорный экран клавиатуры AULA L99 в панель управления домом и показывать на нём данные энергии — с объяснением устройства, конкретными адресами и границами проверенного.
+How we turned the AULA L99 keyboard's touchscreen into a home-control panel and a live energy display: the architecture, exact addresses, working results, and limits of what we verified.
 
-Этот проект вырос из работающего эксперимента на одном экземпляре L99: сначала новая иконка, затем нампад, панель из 12 кнопок, русские надписи и часы с показаниями Home Assistant. Проверки на устройстве проводились в сентябре 2026 года. Публикация подготовлена 1 октября 2026 года.
+This project grew from experiments on one L99: first a new icon, then a redesigned numpad, a 12-button HOME panel, Russian labels, and a clock displaying Home Assistant readings. Hardware checks took place in September 2026. This write-up was prepared on October 1, 2026.
 
-**Главный результат — изменяемый интерфейс поверх штатной логики.** Мы меняли ресурсы, описания страниц и сенсорных зон в `UartTFT-II_Flash.bin`. Собственную замену исполняемой прошивки двух MCU на устройство не загружали. Управление домом выполняет Windows-приложение; клавиатура сама не подключается к Home Assistant.
+**The main result is a customizable interface running on the stock MCU logic.** We changed resources, page descriptions, and touch records in `UartTFT-II_Flash.bin`. We did not flash our own replacement executable firmware onto either MCU. A Windows application handles home control; the keyboard does not connect to Home Assistant by itself.
 
-## Как это работает
+## How it works
 
-**Управление: касание превращается в действие.**
-
-```mermaid
-flowchart LR
-    T[Экран AULA] -->|Код кнопки| K[MCU клавиатуры]
-    K -->|NumPad| P[Приложение ПК]
-    P -->|Действие| H[Home Assistant]
-```
-
-**Датчики: показания возвращаются на экран.**
+**Control: a touch becomes an action.**
 
 ```mermaid
 flowchart LR
-    H[Home Assistant] -->|Датчики| P[Приложение ПК]
-    P -->|USB Serial: переменные RAM| S[Экран AULA]
+    T[AULA screen] -->|Button code| K[Keyboard MCU]
+    K -->|NumPad| P[PC application]
+    P -->|Action| H[Home Assistant]
 ```
 
-Это два разных пути. Нажатие идёт **через клавиатуру в ПК**, а новые значения датчиков — **из ПК прямо в экран**. Обычные клавиши продолжают работать. Для управления нужен работающий ПК и фоновое приложение.
+**Sensors: readings travel back to the screen.**
 
-### Почему используем нампад
+```mermaid
+flowchart LR
+    H[Home Assistant] -->|Sensors| P[PC application]
+    P -->|USB Serial: RAM variables| S[AULA screen]
+```
 
-Экран уже умеет отправлять команды цифрового блока. Мы сохранили известные команды и нарисовали вместо цифр кнопки дома. На ПК обработчик подавляет ввод этих клавиш и вызывает нужное действие HA. Верхний ряд цифр не перехватывается; Num Lock не требуется, поскольку учитываются scan code и оба варианта virtual key.
+These are two different paths. Button events reach the PC **through the keyboard**; sensor updates go **directly from the PC to the screen**. Ordinary keyboard input continues to work. Home control requires a running PC and background application.
 
-**Ограничение:** использованный Windows hook не различает экран AULA и физический нампад другой клавиатуры. При включённом управлении соответствующие клавиши любого нампада заняты панелью. Без приложения они снова печатают цифры или выполняют навигацию. Простая смена подписи в картинке не меняет отправляемую команду.
+### Why use numpad events?
 
-### Откуда берётся энергия
+The screen already sends numeric-keypad commands. We kept those known commands and replaced the number graphics with home-control buttons. On the PC, a handler suppresses those key events and invokes the configured HA action. The top number row is unaffected. Num Lock is not required: the handler recognizes the scan code and both virtual-key variants.
 
-Приложение читает HA, форматирует значения в короткие ASCII-строки и записывает их в выделенные переменные экрана. Изменённые страницы уже знают, где эти строки отображать. Постоянные русские подписи — картинки; мы не добавляли произвольный Unicode в штатный шрифтовый движок.
+**Limitation:** the Windows hook used here cannot distinguish the AULA touchscreen from another keyboard's physical numpad. While control is enabled, the corresponding keys on any numpad are reserved for the panel. Without the application, they type numbers or perform navigation again. Changing a button's artwork alone does not change its command.
 
-На отдельной странице отображаются PV, мощность сети, заряд, температура пола и две суточные энергии. В аналоговых часах используются первые четыре значения из того же блока. Неизвестные данные показываются как `--`, а не как ноль. Нужны согласованные версия UI и передатчик — случайная запись в переменные заводского интерфейса не создаст новую страницу.
+### Where the energy readings come from
 
-## Что получилось и что не доказано
+The application reads HA, formats the values as short ASCII strings, and writes them to allocated screen variables. The modified pages already contain widgets that know where to display those strings. Static Russian labels are bitmaps; we did not add arbitrary Unicode support to the stock font engine.
 
-| Возможность | Статус |
+A dedicated page shows PV power, grid power, battery charge, floor temperature, and two daily energy totals. The analog clock uses the first four values from the same block. Unknown readings display as `--`, not zero. The UI image and sender must agree on the layout: writing arbitrary variables in the factory UI will not create a new page.
+
+## What worked, and what remains unverified
+
+| Capability | Status |
 |---|---|
-| Новый дизайн нампада и панель HOME из 12 кнопок | Подтверждено пользователем на устройстве |
-| Управление HA из сенсорной панели, включая включение/выключение | Подтверждено на устройстве |
-| Работа перехвата в фоне, без печати цифр в активное окно | Подтверждено в используемом Windows-приложении |
-| Русские статические надписи, Home в меню, изменённые фоновые ресурсы | Положительная пользовательская проверка; не исчерпывающий тест всех страниц |
-| Показания в часах обновляются без повторного открытия страницы | Подтверждено; причину первоначально пустых полей не установили |
-| F13/F14 вместо нампада | Кандидат проверен только частичной эмуляцией; на устройство не загружался |
-| Полная новая firmware MCU / готовый QMK-порт L99 | Не реализовано |
-| Восстановление после любого повреждения загрузчика | Не доказано |
+| Redesigned numpad and 12-button HOME panel | User-confirmed on hardware |
+| HA control from the touchscreen, including on/off | Confirmed on hardware |
+| Background interception without typing digits into the active window | Confirmed in the Windows application used for the experiment |
+| Static Russian labels, Home menu entry, revised background resources | Positive user check; not an exhaustive test of every page |
+| Clock readings update without reopening the page | Confirmed; the cause of initially blank fields remains unknown |
+| F13/F14 instead of numpad keys | Candidate tested only in limited emulation; never flashed |
+| Complete replacement MCU firmware or a ready L99 QMK port | Not implemented |
+| Recovery from any bootloader corruption | Not established |
 
-## Что опубликовано
+## What is published
 
-Основная ценность здесь — объяснение и воспроизводимые технические сведения:
+The main contribution is the explanation and reproducible technical evidence:
 
-1. [Архитектура и путь кнопки](docs/architecture.md): два USB-устройства, роль ПК, почему 12 кнопок, ограничения.
-2. [Формат экранного образа](docs/image-format.md): таблицы, bitmap, языки, адреса, метод проверки правок.
-3. [Протокол и исследование MCU](docs/protocol.md): runtime RAM, ISP, M*Core, keyboard resource 4000 и F13/F14.
-4. [Восстановление и неудачные опыты](docs/recovery.md): что помогло на нашем экземпляре и чего это не гарантирует.
-5. [Повторить исследование без устройства](docs/reproduce.md): извлечь официальные файлы, разобрать UI, проверить пакеты офлайн.
-6. [Первичные источники и благодарности](docs/sources.md).
-7. [Проверка опубликованных инструментов](docs/validation.md).
+1. [Architecture and the button-event path](docs/architecture.md): two USB devices, the PC's role, 12 buttons, and limitations.
+2. [Screen image format](docs/image-format.md): tables, bitmaps, languages, offsets, and patch verification.
+3. [Protocols and MCU analysis](docs/protocol.md): runtime RAM, ISP, M*Core, keyboard resource 4000, and F13/F14.
+4. [Recovery and failed experiments](docs/recovery.md): what worked on our specimen and what it does not guarantee.
+5. [Reproduce the research without a device](docs/reproduce.md): extract official files, inspect the UI, and test packet formats offline.
+6. [Primary sources and acknowledgements](docs/sources.md).
+7. [Validation of the published tools](docs/validation.md).
 
-В `tools/` — исходники офлайн-извлечения, инспектора UI и кодеков пакетов. Они не открывают USB/COM и не запускают загрузчик. **Это публикация исследования, не готовый установщик HOME и не комплект для прошивки.** Рабочее Windows-приложение и цепочка сборки нашего UI здесь описаны, но ещё не упакованы в универсальный публичный продукт. Полные заводские/изменённые BIN, updater EXE, SDK, снимки домашней конфигурации и токены не распространяются.
+`tools/` contains source for offline extraction, UI inspection, and packet codecs. These tools do not open USB/COM or launch an updater. **This is a research publication, not a ready-to-install HOME application or flashing kit.** The working Windows application and our UI build chain are described here but have not yet been packaged as a general-purpose public product. Complete factory or modified BIN files, updater EXEs, SDKs, home-configuration snapshots, and tokens are not distributed.
 
-## С чего начать
+## Where to start
 
-Сначала прочитайте архитектуру. Если интересен свой дизайн — затем формат образа и офлайн-инспектор. Если нужен HA — начните с распознавания экранного нампада в локальном демо без реальных устройств, затем подключайте явно выбранное действие.
+Read the architecture first. For custom artwork, continue with the image format and offline inspector. For HA integration, start by recognizing touchscreen numpad events in a local demo with no real device actions, then connect one explicitly selected HA action.
 
-Если интересна полная новая firmware, особенно важно прочитать раздел MCU: `EEEF:268A` не доказывает LT7689. Наши HFD-образы содержат M*Core-код, согласующийся с LT168. Таблицы UI, RAM-переменные, CPU-адреса и физические адреса flash — разные пространства.
+For a complete firmware replacement, read the MCU section carefully: `EEEF:268A` does not prove LT7689. Our HFD images contain M*Core code consistent with LT168. UI-file offsets, runtime variables, CPU addresses, and physical flash addresses are different address spaces.
 
-Это независимое исследование, не официальный проект AULA. Проверенный файл определяется SHA-256, а не одним названием или номером версии. Эксперимент на одной плате не доказывает совместимость со всеми ревизиями.
+This is independent research, not an official AULA project. Identify a verified file by SHA-256, not just its name or version number. Success on one board does not establish compatibility with every revision.
 
-## Вклад сообщества
+## Contributing
 
-Полезнее всего подтверждения ревизий PCB, качественные фото маркировок и сервисных площадок, проверенный путь аппаратного восстановления, наблюдения протокола и минимальные воспроизводимые примеры. В issue указывайте версию, SHA-256 файла, шаги и отдельно наблюдение/предположение. Не прикладывайте токены, SSH-ключи, домашние конфигурации, дампы трафика с авторизацией или полные заводские образы.
+The most useful contributions are PCB-revision identification, clear chip-marking and service-pad photographs, a verified hardware-recovery path, protocol observations, and minimal reproducible examples. In an issue, include the version, file SHA-256, and steps; distinguish observation from hypothesis. Do not attach tokens, SSH keys, home configurations, traffic captures containing authorization, or complete vendor images.
 
-Текст и собственные инструменты этого репозитория: GPL-2.0-only, см. [LICENSE](LICENSE). Лицензия не распространяется на сторонние firmware, SDK и графику, которые пользователь извлекает отдельно. Источники и авторство перечислены в [sources.md](docs/sources.md).
+The write-up and our tools are licensed under GPL-2.0-only; see [LICENSE](LICENSE). This does not license third-party firmware, SDKs, or artwork extracted separately by a user. Sources and attribution are listed in [sources.md](docs/sources.md).
+
+---
+
+Even under bombardment, we keep working and sharing knowledge. Slava Ukraini! 🇺🇦
